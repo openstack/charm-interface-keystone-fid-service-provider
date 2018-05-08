@@ -1,0 +1,3 @@
+name: keystone-fid-service-provider
+summary: An interface for integration of an external IDP with keystone via a subordinate charm
+maintainer: OpenStack Charmers <openstack-charmers@lists.ubuntu.com>
