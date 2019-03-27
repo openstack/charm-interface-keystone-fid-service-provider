@@ -59,7 +59,7 @@ class KeystoneFIDServiceProvides(Endpoint):
                 'endpoint.{endpoint_name}.changed.tls-enabled'),
         )
         if all_flags_set(*flags):
-            for flag in (flags):
+            for flag in flags:
                 clear_flag(flag)
             set_flag(self.expand_name('{endpoint_name}.available'))
 
