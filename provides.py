@@ -13,11 +13,12 @@
 # limitations under the License.
 
 from charms.reactive import (
-    Endpoint,
+    all_flags_set,
     clear_flag,
+    Endpoint,
     set_flag,
     when,
-    when_any,
+    when_not,
 )
 
 import uuid
@@ -37,55 +38,39 @@ class KeystoneFIDServiceProvides(Endpoint):
     def tls_enabled(self):
         return self.all_joined_units.received['tls-enabled']
 
+    @property
+    def base_url(self):
+        scheme = 'https' if self.tls_enabled else 'http'
+        return ('{}://{}:{}'.format(scheme, self.hostname,
+                                    self.port))
+
     @when('endpoint.{endpoint_name}.joined')
     def joined(self):
         set_flag(self.expand_name('{endpoint_name}.connected'))
-        self.update_flags()
 
     @when('endpoint.{endpoint_name}.changed')
     def changed(self):
-        self.update_flags()
+        flags = (
+            self.expand_name(
+                'endpoint.{endpoint_name}.changed.hostname'),
+            self.expand_name(
+                'endpoint.{endpoint_name}.changed.port'),
+            self.expand_name(
+                'endpoint.{endpoint_name}.changed.tls-enabled'),
+        )
+        if all_flags_set(*flags):
+            for flag in (flags):
+                clear_flag(flag)
+            set_flag(self.expand_name('{endpoint_name}.available'))
 
-    @when_any('endpoint.{endpoint_name}.broken',
-              'endpoint.{endpoint_name}.departed')
+    @when_not('endpoint.{endpoint_name}.joined')
     def departed(self):
         flags = (
-            self.expand_name('{endpoint_name}.available'),
             self.expand_name('{endpoint_name}.connected'),
+            self.expand_name('{endpoint_name}.available'),
         )
         for flag in flags:
             clear_flag(flag)
-
-    def data_complete(self):
-        data = {
-            'hostname': self.hostname,
-            'port': self.port,
-            'tls-enabled': self.tls_enabled,
-        }
-        # We only care if the values are None
-        # False is a valid value
-        if all(v is not None for v in data.values()):
-            return True
-        return False
-
-    def update_flags(self):
-        """Update the flags of the relations based on the data that the
-        relation has.
-
-        If the :meth:`data_complete` is False then all of the flags
-        are removed.  Otherwise, the individual flags are set according to
-        their own data methods.
-        """
-        data_complete = self.data_complete()
-        flags = {
-            self.expand_name('{endpoint_name}.available'):
-                self.data_complete(),
-        }
-        for k, v in flags.items():
-            if data_complete and v:
-                set_flag(k)
-            else:
-                clear_flag(k)
 
     def publish(self, protocol_name, remote_id_attribute):
         # get the first relation object as we only have one relation
